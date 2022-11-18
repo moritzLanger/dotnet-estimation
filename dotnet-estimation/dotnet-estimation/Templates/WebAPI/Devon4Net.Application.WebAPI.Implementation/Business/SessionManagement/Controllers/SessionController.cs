@@ -29,11 +29,13 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
     {
         private readonly ISessionService _sessionService;
         private readonly IWebSocketHandler _webSocketHandler;
+         
         
         public SessionController(ISessionService SessionService, IWebSocketHandler webSocketHandler)
         {
             _sessionService = SessionService;
             _webSocketHandler = webSocketHandler;
+            
         }
         
         
@@ -50,6 +52,8 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> CreateSession(SessionDto sessionDto)
         {
+
+
             Devon4NetLogger.Debug($"Create session that will expire at {sessionDto.ExpiresAt}");
             var result = await _sessionService.CreateSession(sessionDto);
             return StatusCode(StatusCodes.Status200OK, LiteDB.JsonSerializer.Serialize(result));
@@ -174,6 +178,8 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             var result = await _sessionService.AddNewEstimation(sessionId, estimationDto.VoteBy, estimationDto.Complexity).ConfigureAwait(false);
             return StatusCode(StatusCodes.Status201Created, result);
         }
+    
+        
     }
 
 }

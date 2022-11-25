@@ -12,6 +12,7 @@ using Devon4Net.Infrastructure.Test;
 using FluentAssertions;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dtos;
 using Xunit.Abstractions;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 {
@@ -27,6 +28,33 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
             this.output = output;
         }
         
+        
+/*        [Fact]
+        public async void CreateSession_withValidDto_ReturnsCreatedSession()
+        {
+            //Arrange
+
+            repositoryStub.Setup(repo => repo.Create(
+                CreateRandomSession(1)
+            ));
+            var session = new SessionDto()
+            {
+                ExpiresAt = DateTime.Now.AddMinutes(30),
+            };
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+            var createdSession = await sessionService.CreateSession(session);
+
+            //Assert
+
+            Assert.Null(createdSession);
+        }
+*/
+        
+
+
         [Fact]
         public async void GetSession_WithPopulatedRepo_ReturnsTheSearchedSession()
         {
@@ -45,8 +73,74 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
             //Assert
             actualSession2.Should().BeEquivalentTo(ExpectedSession, options => options.ComparingByMembers<Session>());
         }
-        */
-        
+
+        [Fact]
+        public async void GetStatus_WithPoluatedTasks_ReturnsTrueAndTasklist()
+        {
+
+            //Arange
+            var ExpectedSession = CreateRandomSession(7);
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(ExpectedSession);
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+            
+            var (status, tasks) = await sessionService.GetStatus(7);
+
+            //Assert
+            //Assert that the delivered indicator whether the Session is valid or not
+            Assert.True(status);
+            //Assert that the list of Tasks is the correct one
+            tasks.Should().BeEquivalentTo(ExpectedSession.Tasks.ToList(), options => options.ComparingByMembers<TaskStatusChangeDto>());
+        }
+
+        [Fact]
+        public async void GetStatus_WithExpiredSession_ReturnsFalseAndNull()
+        {
+
+            //Arange
+            var ExpectedSession = CreateExpiredSession(8);
+                repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(ExpectedSession);
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+
+            var (status, tasks) = await sessionService.GetStatus(8);
+
+            //Assert
+            //Assert that the delivered indicator whether the Session is valid or not
+            Assert.False(status);
+            //Assert that the list of Tasks is Null
+            Assert.Null(tasks);
+        }
+        [Fact]
+        public async void GetStatus_WithNoSession_ThrowError()
+        {
+
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+            try
+            {
+                var (status, tasks) = await sessionService.GetStatus(10);
+            }
+            //Assert
+            catch (Exception NotFoundException)
+            {
+                Assert.True(true);
+            }
+        }
+
+
 
         [Theory]
         [InlineData(1, "Task1", Status.Open)]
@@ -73,11 +167,9 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 
             var service = new SessionService(repositoryStub.Object);
 
-            output.WriteLine("Hello" + firstTask);
             //Act
             var (modified, modifiedTasks) = await service.ChangeTaskStatus(sessionId, destinationStatus);
 
-            var (TaskChanged, modifiedTasks) = await Controller.ChangeTaskStatus(1, newStatus);
             //Assert
             //Assert that the delivered indicator whether changes were made is false, since no changes are expected
             Assert.False(modified);
@@ -172,7 +264,7 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 
         [Theory]
         [InlineData(1, "Task1", Status.Ended)]
-        public async void ChangeTaskStatus_SuspendedToEnded_ReturnsTheChangedTaskStatus(long sessionId, string statusId, Status status)
+        public async void ChangeTaskStatus_SuspendedToEnded_ReturnsFalse(long sessionId, string statusId, Status status)
         {
             //Arrange
             //Arrange the expected Result
@@ -207,11 +299,10 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 
             //Assert 
             //Assert that the delivered indicator whether changes were made is false, since no changes are expected
-            Assert.True(modified);
+            Assert.False(modified);
             //Assert that the list of modified TaskStatusChangeDtos delivers a suspended Status
-            modifiedTasks.Should().BeEquivalentTo(expectedTaskStatusChangeDtoResult, options => options.ComparingByMembers<TaskStatusChangeDto>());
+            //modifiedTasks.Should().BeEquivalentTo(expectedTaskStatusChangeDtoResult, options => options.ComparingByMembers<TaskStatusChangeDto>());
         }
-
 
         [Fact]
         public async void AddUserToSession_WithPopulatedRepo_ReturnsTrue()
@@ -234,7 +325,6 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
             var InitialUsers = InitialSession.Users;
 
             //Act
-            var newUser = new User { Id = "Vlad", Role = 0 };
             var UserAdded = await Controller.AddUserToSession(1, newUser.Id, newUser.Role);
             var actualSession = await Controller.GetSession(1);
             var resultUsers = actualSession.Users;
@@ -243,6 +333,64 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
             //Assert
             Assert.True(UserAdded);
             resultUsers.Last<User>().Should().BeEquivalentTo(newUser);
+        }
+
+        [Fact]
+        public async void RemoveUserFromSession_WithValidSessionAndUser_ReturnsTrue()
+        {
+            //Arrange
+            var InitialSession = CreateRandomSession(3);
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            var session = new SessionService(repositoryStub.Object);
+            var userToDelete = InitialSession.Users[1];
+
+            //Act
+            var removeUser = await session.RemoveUserFromSession(3, userToDelete.Id);
+
+            //Assert
+            Assert.True(removeUser);  
+        }
+
+        [Fact]
+        public async void RemoveUserFromSession_WithValidSessionAndInvalidUser_ReturnsFalse()
+        {
+            //Arrange
+            var InitialSession = CreateRandomSession(3);
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            var session = new SessionService(repositoryStub.Object);
+
+            //Act
+            var removeUser = await session.RemoveUserFromSession(3, Guid.NewGuid().ToString());
+
+            //Assert
+            Assert.False(removeUser);
+        }
+
+        [Fact]
+        public async void RemoveUserFromSession_WithInvalidSession_ReturnsFalse()
+        {
+            //Arrange
+            var InitialSession = CreateExpiredSession(3);
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            var session = new SessionService(repositoryStub.Object);
+
+            //Act
+            var removeUser = await session.RemoveUserFromSession(3, Guid.NewGuid().ToString());
+
+            //Assert
+            Assert.False(removeUser);
         }
 
         private Session CreateRandomSession(long sessionId)
@@ -278,6 +426,39 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
             };
         }
 
+        private Session CreateExpiredSession(long sessionId)
+        {
+            IList<User> Users = new List<User>();
+            Users.Add(CreateRandomUser());
+            Users.Add(CreateRandomUser());
+            Users.Add(CreateRandomUser());
+            IList<Task> Tasks = new List<Task>();
+            Tasks.Add(CreateRandomTask());
+            Tasks.Add(CreateRandomTask());
+            Tasks.Add(CreateRandomTask());
+
+
+            //Mockup estimations by each of the 3 random created users
+            Estimation estimation1 = new Estimation { VoteBy = Users[0].Id, Complexity = rnd.Next(13) };
+            Estimation estimation2 = new Estimation { VoteBy = Users[1].Id, Complexity = rnd.Next(13) };
+            Estimation estimation3 = new Estimation { VoteBy = Users[2].Id, Complexity = rnd.Next(13) };
+
+            Tasks[0].Estimations.Add(estimation1);
+            Tasks[0].Estimations.Add(estimation2);
+            Tasks[0].Estimations.Add(estimation3);
+
+
+            //TODO Add to Task.Estimations, one or two Voteby strings of already created Users + random int Complexity vote
+            return new()
+            {
+                Id = sessionId,
+                InviteToken = Guid.NewGuid().ToString(),
+                ExpiresAt = DateTime.Now,
+                Tasks = Tasks,
+                Users = Users,
+            };
+        }
+
         private Task CreateRandomTask()
         {
             var StatusValues = Enum.GetValues(typeof(Status));
@@ -306,27 +487,5 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
                 Role = role,
             };
         }
-
-
-        /* Example Fact Check
-        [Fact]
-        public async Task GetDishesByCategory_WithGivenCategories_ReturnsTheCorrespondingCategoryDishes()
-        {
-            //Arrange
-            var Dishes = new[] { CreateRandomUser(), CreateRandomUser(), CreateRandomUser() };
-            var ExpectedCategories = new[] { Dishes[0].Category, Dishes[1].Category };
-            IList<Dish> ExpectedDishes = new List<Dish> { Dishes[0], Dishes[1] };
-            IList<string> Ids = new List<string>() { ExpectedCategories[0].FirstOrDefault().Id, ExpectedCategories[1].FirstOrDefault().Id };
-
-            var controller = new DishService(repositoryStub.Object);
-
-            repositoryStub.Setup(repo => repo.GetDishesByCategory(Ids))
-                .ReturnsAsync(ExpectedDishes);
-            //Act
-            var result = await controller.GetDishesByCategory(Ids);
-            //Assert
-            result.Should().BeEquivalentTo(ExpectedDishes, options => options.ComparingByMembers<Dish>());
-        }
-        */
     }
 }

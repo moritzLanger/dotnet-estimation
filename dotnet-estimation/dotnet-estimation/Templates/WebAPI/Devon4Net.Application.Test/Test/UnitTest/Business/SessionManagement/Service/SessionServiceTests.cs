@@ -27,16 +27,17 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
         {
             this.output = output;
         }
-        
-        
-/*        [Fact]
+
+
+        [Fact]
         public async void CreateSession_withValidDto_ReturnsCreatedSession()
         {
             //Arrange
-
             repositoryStub.Setup(repo => repo.Create(
-                CreateRandomSession(1)
-            ));
+                It.IsAny<Session>() 
+             ))
+                .Returns(new LiteDB.BsonValue());
+
             var session = new SessionDto()
             {
                 ExpiresAt = DateTime.Now.AddMinutes(30),
@@ -49,10 +50,10 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 
             //Assert
 
-            Assert.Null(createdSession);
+            Assert.IsType<LiteDB.BsonValue>(createdSession);
         }
-*/
-        
+
+
 
 
         [Fact]

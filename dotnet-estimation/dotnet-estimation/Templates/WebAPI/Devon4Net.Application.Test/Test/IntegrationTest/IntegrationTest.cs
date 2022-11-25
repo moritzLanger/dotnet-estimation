@@ -1,11 +1,14 @@
 ﻿using Devon4Net.Business.Common;
 using Devon4Net.Domain.Entities;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
+using AutoMapper;
 
 namespace Devon4Net.Test.xUnit.Test.Integration
 {
-    public class IntegrationTest : DatabaseManagementTest<ModelContext>
+    public class IntegrationTest : Infrastructure.Test.DatabaseManagementTest<ModelContext>
     {
         public override void ConfigureContext()
         {

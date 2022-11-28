@@ -45,6 +45,32 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             Assert.IsType<LiteDB.BsonValue>(createdSession);
         }
 
+        [Fact]
+        public async void CreateSession_withExpiredDtoSession_ReturnsCreatedSession()
+        {
+            //Arrange
+            repositoryStub.Setup(repo => repo.Create(
+                It.IsAny<Session>()
+             ))
+                .Returns(new LiteDB.BsonValue());
 
+            var session = new SessionDto()
+            {
+                ExpiresAt = DateTime.Now,
+            };
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+            try
+            {
+                var createdSession = await sessionService.CreateSession(session);
+            }
+            //Assert
+            catch (Exception InvalidExpiryDateException)
+            {
+                Assert.True(true);
+            }
+        }
     }
 }

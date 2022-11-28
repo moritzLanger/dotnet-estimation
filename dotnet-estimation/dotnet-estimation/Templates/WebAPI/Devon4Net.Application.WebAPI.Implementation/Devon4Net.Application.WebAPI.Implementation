@@ -682,6 +682,11 @@
             Add an User to a given session
             </summary>
         </member>
+        <member name="M:Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service.ISessionService.DeleteTask(System.Int64,System.String)">
+            <summary>
+            Delete a Task
+            </summary>
+        </member>
         <member name="T:Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service.SessionService">
             <summary>
             Session service implementation
@@ -700,6 +705,16 @@
             <param name="sessionDto"></param>
             <returns></returns>
         </member>
+        <member name="M:Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service.SessionService.AddNewEstimation(System.Int64,System.String,System.String,System.Int32)">
+            <summary>
+            Adds or updates a user's estimation to the active session's task
+            </summary>
+            <param name="sessionId">The current session's ID</param>
+            <param name="taskId">The active task's ID</param>
+            <param name="voteBy">The originating user's ID</param>
+            <param name="complexity">Complexity estimation</param>
+            <returns></returns>
+        </member>
         <member name="M:Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service.SessionService.AddUserToSession(System.Int64,System.String,Devon4Net.Application.WebAPI.Implementation.Domain.Entities.Role)">
             <summary>
             Add an user to a given session
@@ -707,6 +722,14 @@
             <param name="sessionId"></param>
             <param name="userId"></param>
             <param name="role"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service.SessionService.DeleteTask(System.Int64,System.String)">
+            <summary>
+            Delete a Task
+            </summary>
+            <param name="sessionId"></param>
+            <param name="taskId"></param>
             <returns></returns>
         </member>
         <member name="T:Devon4Net.Application.WebAPI.Implementation.Business.TodoManagement.Controllers.TodoController">

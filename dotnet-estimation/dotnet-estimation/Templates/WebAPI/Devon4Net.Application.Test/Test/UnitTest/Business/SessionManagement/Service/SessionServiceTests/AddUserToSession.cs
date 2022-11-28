@@ -42,14 +42,75 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
 
             //Act
             var UserAdded = await Controller.AddUserToSession(1, newUser.Id, newUser.Role);
+
+            //logic Tests or not?
+            //var actualSession = await Controller.GetSession(1);
+            //var resultUsers = actualSession.Users;
+            //var LastUser = resultUsers.Last<User>();
+
+            //Assert
+            Assert.True(UserAdded);
+           // resultUsers.Last<User>().Should().BeEquivalentTo(newUser);
+        }
+        
+        //this case has to be added To the logic of the method, as it would pass
+
+        [Fact]
+        public async void AddUserToSession_WithInvalidSession_ReturnsTrue()
+        {
+            //Arrange
+            var newUser = new User { Id = "TestUser", Role = 0 };
+            var InitialSession = CreateExpiredSession(1);
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            repositoryStub.Setup(repo => repo.Update(
+                It.IsAny<Session>()
+            ))
+                .Returns(true);
+
+            var Controller = new SessionService(repositoryStub.Object);
+            var InitialUsers = InitialSession.Users;
+
+            //Act
+            var UserAdded = await Controller.AddUserToSession(1, newUser.Id, newUser.Role);
             var actualSession = await Controller.GetSession(1);
             var resultUsers = actualSession.Users;
             var LastUser = resultUsers.Last<User>();
 
             //Assert
-            Assert.True(UserAdded);
-            resultUsers.Last<User>().Should().BeEquivalentTo(newUser);
+
+               //CATCH OR FALSE !!!!
         }
+        // Don't know why it fails
+        [Fact]
+        public async void AddUserToSession_WithExistingUser_ReturnsFalse()
+        {
+            //Arrange
+            var InitialSession = CreateRandomSession(1);
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            repositoryStub.Setup(repo => repo.Update(
+                It.IsAny<Session>()
+            ))
+                .Returns(true);
+
+            var Controller = new SessionService(repositoryStub.Object);
+            var InitialUsers = InitialSession.Users;
+
+            //Act
+            var UserAdded = await Controller.AddUserToSession(1, InitialSession.Users[1].Id, InitialSession.Users[1].Role);
+
+            //Assert
+            Assert.False(UserAdded);
+       }
     }
 }
 

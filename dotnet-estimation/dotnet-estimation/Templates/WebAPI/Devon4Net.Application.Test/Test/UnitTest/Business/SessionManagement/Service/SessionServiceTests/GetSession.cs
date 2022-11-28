@@ -1,5 +1,6 @@
 ﻿using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dtos;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
+using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
 using FluentAssertions;
 using Moq;
@@ -38,6 +39,24 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             //Assert
             actualSession2.Should().BeEquivalentTo(ExpectedSession, options => options.ComparingByMembers<Session>());
         }
+        /*[Fact]
+         public async void GetSession_WithinvalidId_ReturnsTheSearchedSession()
+         {
+             //Arrange
+             var ExpectedSession = CreateRandomSession(2);
+             repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                 It.IsAny<LiteDB.BsonExpression>()
+             ))
+                 .Returns(ExpectedSession);
 
+             var sessionService = new SessionService(repositoryStub.Object);
+
+             //Act
+             var actualSession2 = await sessionService.GetSession(111111);
+
+             //Assert
+             Assert.Null(actualSession2);
+             }
+        */
     }
 }

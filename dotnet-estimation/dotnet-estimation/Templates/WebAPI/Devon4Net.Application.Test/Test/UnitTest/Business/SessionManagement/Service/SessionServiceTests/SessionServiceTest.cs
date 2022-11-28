@@ -27,6 +27,40 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
         {
             this.output = output;
         }
+        protected Session CreateRadomSessionWithOpenTaskAndEstimations(long sessionId)
+        {
+            IList<User> Users = new List<User>();
+            Users.Add(CreateRandomUser());
+            Users.Add(CreateRandomUser());
+            Users.Add(CreateRandomUser());
+            IList<Task> Tasks = new List<Task>();
+            Tasks.Add(CreateOpenTask());
+            Tasks.Add(CreateRandomTask());
+            Tasks.Add(CreateRandomTask());
+
+
+
+
+            //Mockup estimations by each of the 3 random created users
+            Estimation estimation1 = new Estimation { VoteBy = Users[0].Id, Complexity = rnd.Next(13) };
+            Estimation estimation2 = new Estimation { VoteBy = Users[1].Id, Complexity = rnd.Next(13) };
+            Estimation estimation3 = new Estimation { VoteBy = Users[2].Id, Complexity = rnd.Next(13) };
+
+            Tasks[0].Estimations.Add(estimation1);
+            Tasks[0].Estimations.Add(estimation2);
+            Tasks[0].Estimations.Add(estimation3);
+
+
+            //TODO Add to Task.Estimations, one or two Voteby strings of already created Users + random int Complexity vote
+            return new()
+            {
+                Id = sessionId,
+                InviteToken = Guid.NewGuid().ToString(),
+                ExpiresAt = DateTime.Now.AddDays(1),
+                Tasks = Tasks,
+                Users = Users,
+            };
+        }
         protected Session CreateRandomSession(long sessionId)
         {
             IList<User> Users = new List<User>();
@@ -121,5 +155,23 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
                 Role = role,
             };
         }
+    
+        private Task CreateOpenTask()
+        {
+            
+            return new()
+            {
+                Id = "132",
+                Title = Guid.NewGuid().ToString(),
+                Description = Guid.NewGuid().ToString(),
+                Url = Guid.NewGuid().ToString(),
+                Status = Status.Open,
+                CreatedAt = DateTime.Now,
+                Estimations = new List<Estimation>(),
+                Result = new Result { AmountOfVotes = 0, ComplexityAverage = 0 },
+            };
+
+        }
     }
+
 }

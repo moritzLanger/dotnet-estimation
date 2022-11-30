@@ -1,14 +1,10 @@
 ﻿using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dtos;
+using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Exceptions;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
 using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
-using FluentAssertions;
 using Moq;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -46,7 +42,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
         }
 
         [Fact]
-        public async void CreateSession_withExpiredDtoSession_ReturnsCreatedSession()
+        public async void CreateSession_withExpiredDtoSession_ThrowsInvalidExpiryDateException()
         {
             //Arrange
             repositoryStub.Setup(repo => repo.Create(
@@ -61,16 +57,8 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
 
             var sessionService = new SessionService(repositoryStub.Object);
 
-            //Act
-            try
-            {
-                var createdSession = await sessionService.CreateSession(session);
-            }
-            //Assert
-            catch (Exception InvalidExpiryDateException)
-            {
-                Assert.True(true);
-            }
+            //Act and Assert
+            await Assert.ThrowsAsync<InvalidExpiryDateException>(() => sessionService.CreateSession(session));
         }
     }
 }

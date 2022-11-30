@@ -5,11 +5,7 @@ using Devon4Net.Infrastructure.LiteDb.Repository;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
 using FluentAssertions;
 using Moq;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -20,8 +16,6 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
         public ChangeTaskStatus(ITestOutputHelper output) : base(output)
         {
         }
-
-
 
         [Theory]
         [InlineData(1, "Task1", Status.Open)]
@@ -181,8 +175,6 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             //Assert 
             //Assert that the delivered indicator whether changes were made is false, since no changes are expected
             Assert.False(modified);
-            //Assert that the list of modified TaskStatusChangeDtos delivers a suspended Status
-            //modifiedTasks.Should().BeEquivalentTo(expectedTaskStatusChangeDtoResult, options => options.ComparingByMembers<TaskStatusChangeDto>());
         }
     }
 }

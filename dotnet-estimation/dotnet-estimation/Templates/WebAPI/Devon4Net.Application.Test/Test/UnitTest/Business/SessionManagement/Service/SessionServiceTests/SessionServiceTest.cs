@@ -1,18 +1,10 @@
 ﻿using System;
-using Xunit;
 using Moq;
-using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
 using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
-using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Linq;
 using Task = Devon4Net.Application.WebAPI.Implementation.Domain.Entities.Task;
 using Devon4Net.Infrastructure.LiteDb.Repository;
-using Devon4Net.Infrastructure.Test;
-using FluentAssertions;
-using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dtos;
 using Xunit.Abstractions;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
 {

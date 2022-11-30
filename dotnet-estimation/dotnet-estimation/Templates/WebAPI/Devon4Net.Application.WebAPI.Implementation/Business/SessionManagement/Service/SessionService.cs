@@ -26,6 +26,21 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             _sessionRepository = SessionRepository;
         }
+
+        public void validateSession(Session session, long sessionId)
+        {
+
+            if (session == null)
+            {
+                throw new NotFoundException(sessionId);
+            }
+
+            if (!session.IsValid())
+            {
+                throw new InvalidSessionException(sessionId);
+            }
+        }
+
         /// <summary>
         /// Creates the Session
         /// </summary>
@@ -55,24 +70,11 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             return _sessionRepository.GetFirstOrDefault(expression);
         }
 
-        public async void validateSession(Session session){
-            
-            if (sessionResult == null)
-            {
-                throw new NotFoundException(sessionId);
-            }
-
-            if (!sessionResult.IsValid())
-            {
-                throw new InvalidSessionException(sessionId);
-            }
-        }
-
         public async Task<bool> InvalidateSession(long sessionId)
         {
-            var session = await GetSession(sessionId);
+            Session session = await GetSession(sessionId);
 
-            await validateSession(session);
+            validateSession(session, sessionId);
 
             session.ExpiresAt = DateTime.Now;
 
@@ -83,7 +85,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             var session = await GetSession(sessionId);
 
-            await validateSession(session);
+            validateSession(session, sessionId);
 
             return (true, session.Tasks.ToList());
         }
@@ -100,8 +102,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             var session = await GetSession(sessionId);
 
-            await validateSession(session);
-
+            validateSession(session, sessionId);
 
             var containsTask = session.Tasks.Where(item => item.Id == taskId).Any();
 
@@ -111,19 +112,20 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             }
 
             var task = session.Tasks.First(item => item.Id == taskId);
-            
+
             var estimations = task.Estimations;
-            
+
             var newEstimation = new Estimation { VoteBy = voteBy, Complexity = complexity };
 
             // if estimation by user already exists, delete previous estimation before adding new
-            if (estimations != null && estimations.Any()) {
+            if (estimations != null && estimations.Any())
+            {
                 var alreadyContainsEstimation = estimations.Where(item => item.VoteBy == voteBy).Any();
 
                 if (alreadyContainsEstimation)
                 {
-                    var oldEstimation = estimations.FirstOrDefault(est => est.VoteBy == voteBy);
-                       
+                    var oldEstimation = estimations.First(est => est.VoteBy == voteBy);
+
                     estimations.Remove(oldEstimation);
                 }
             }
@@ -137,10 +139,11 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
         public async Task<bool> RemoveUserFromSession(long sessionId, string userId)
         {
-            var session = await GetSession(sessionId);
+            var expression = LiteDB.Query.EQ("_id", sessionId);
+            var session = _sessionRepository.GetFirstOrDefault(expression);
 
-            await validateSession(session);
-
+            validateSession(session, sessionId);
+            
             var user = session.Users.SingleOrDefault(i => i.Id == userId);
 
             if (user != null)
@@ -149,7 +152,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 _sessionRepository.Update(session);
                 return true;
             }
-
+               
             return false;
         }
 
@@ -172,14 +175,14 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Role = role,
             };
 
-            await validateSession(session);
+            validateSession(session, sessionId);
+
+            if (!session.Users.Any(x => x.Equals(newUser)))
+                {
+                    session.Users.Add(newUser);
+                    return _sessionRepository.Update(session);
+                }
             
-            if (!session.Users.Any(x => x.Id.Equals(newUser.Id)))
-            {
-                session.Users.Add(newUser);
-                return _sessionRepository.Update(session);
-            }
-        
             return false;
         }
 
@@ -199,8 +202,9 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Status = Status.Suspended
             };
 
-            await validateSession(session);
-        
+
+            validateSession(session, sessionId);
+
             session.Tasks.Add(newTask);
 
             var finished = _sessionRepository.Update(session);
@@ -209,7 +213,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             {
                 return (finished, TaskConverter.ModelToDto(newTask));
             }
-
+            
             return (false, null);
         }
 
@@ -223,7 +227,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             var session = await GetSession(sessionId);
 
-            await validateSession(session);
+            validateSession(session, sessionId);
 
             var task = session.Tasks.ToList().Find(item => item.Id == taskId);
 
@@ -251,8 +255,8 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
             var (id, status) = statusChange;
 
-            await validateSession(session);
-        
+            validateSession(session, sessionId);
+
             var containsTask = session.Tasks.Where(item => item.Id == id).Any();
 
             if (!containsTask)
@@ -277,6 +281,8 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
                 return (true, converted);
             }
+            
+
             return (false, new List<TaskStatusChangeDto>());
         }
     }

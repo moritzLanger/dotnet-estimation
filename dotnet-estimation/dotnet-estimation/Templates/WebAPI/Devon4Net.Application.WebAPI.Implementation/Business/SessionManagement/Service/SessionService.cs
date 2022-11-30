@@ -124,7 +124,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
                 if (alreadyContainsEstimation)
                 {
-                    var oldEstimation = estimations.First(est => est.VoteBy == voteBy);
+                    var oldEstimation = estimations.FirstOrDefault(est => est.VoteBy == voteBy);
 
                     estimations.Remove(oldEstimation);
                 }
@@ -165,9 +165,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         /// <returns></returns>
         public async Task<bool> AddUserToSession(long sessionId, string userId, Role role)
         {
-            var expression = LiteDB.Query.EQ("_id", sessionId);
-            // This is unwanted behaviour.
-            var session = _sessionRepository.GetFirstOrDefault(expression);
+            var session = await GetSession(sessionId);
 
             var newUser = new User
             {
@@ -177,7 +175,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
             validateSession(session, sessionId);
 
-            if (!session.Users.Any(x => x.Equals(newUser)))
+            if (!session.Users.Any(x => x.Id.Equals(newUser.Id)))
                 {
                     session.Users.Add(newUser);
                     return _sessionRepository.Update(session);

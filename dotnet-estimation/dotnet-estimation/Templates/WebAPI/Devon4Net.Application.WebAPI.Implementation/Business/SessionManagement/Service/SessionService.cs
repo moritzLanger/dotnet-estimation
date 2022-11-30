@@ -46,7 +46,6 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Users = new List<Domain.Entities.User>()
             });
         }
-
         public async Task<Session> GetSession(long id)
         {
             var expression = LiteDB.Query.EQ("_id", id);
@@ -58,39 +57,22 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         public async Task<bool> InvalidateSession(long sessionId)
         {
             Session sessionResult = await GetSession(sessionId);
-
-            if (sessionResult == null)
+            if (isSessionValid(session))
             {
-                throw new NotFoundException(sessionId);
+                sessionResult.ExpiresAt = DateTime.Now;
+
+                return _sessionRepository.Update(sessionResult);
             }
-
-            if (!sessionResult.IsValid())
-            {
-                throw new InvalidSessionException(sessionId);
-            }
-
-            sessionResult.ExpiresAt = DateTime.Now;
-
-            return _sessionRepository.Update(sessionResult);
         }
 
         public async Task<(bool, List<Domain.Entities.Task>)> GetStatus(long sessionId)
         {
             var entity = await GetSession(sessionId);
-
-            if (entity == null)
+            if (isSessionValid(session))
             {
-                throw new NotFoundException(sessionId);
+
+                return (true, entity.Tasks.ToList());
             }
-
-            bool sessionIsValid = entity.IsValid();
-
-            if (!sessionIsValid)
-            {
-                return (false, null);
-            }
-
-            return (true, entity.Tasks.ToList());
         }
 
         /// <summary>
@@ -105,36 +87,41 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             var session = await GetSession(sessionId);
 
-            if (session is null)
+            if (isSessionValid(session))
             {
-                throw new NoLongerValid(sessionId);
-            }
 
-            var containsTask = session.Tasks.Where(item => item.Id == taskId).Any();
+                var containsTask = session.Tasks.Where(item => item.Id == taskId).Any();
 
-            if (containsTask == false)
-            {
-                throw new NoOpenOrSuspendedTask();
-            }
-
-            var task = session.Tasks.First(item => item.Id == taskId);
-            var estimations = task.Estimations;
-
-            var newEstimation = new Estimation { VoteBy = voteBy, Complexity = complexity };
-
-            // if estimation by user already exists, delete previous estimation before adding new
-            if (estimations != null && estimations.Any()) {
-                var oldEstimation = estimations.First(est => est.VoteBy == voteBy);
-                if(oldEstimation != null) {
-                    estimations.Remove(oldEstimation);
+                if (containsTask == false)
+                {
+                    throw new NoOpenOrSuspendedTask();
                 }
+
+                var task = session.Tasks.First(item => item.Id == taskId);
+
+                var estimations = task.Estimations;
+
+                var newEstimation = new Estimation { VoteBy = voteBy, Complexity = complexity };
+
+                // if estimation by user already exists, delete previous estimation before adding new
+                if (estimations != null && estimations.Any())
+                {
+                    var alreadyContainsEstimation = estimations.Where(item => item.VoteBy == voteBy).Any();
+
+                    if (alreadyContainsEstimation)
+                    {
+                        var oldEstimation = estimations.First(est => est.VoteBy == voteBy);
+
+                        estimations.Remove(oldEstimation);
+                    }
+                }
+
+                estimations.Add(newEstimation);
+
+                _sessionRepository.Update(session);
+
+                return newEstimation;
             }
-
-            estimations.Add(newEstimation);
-
-            _sessionRepository.Update(session);
-
-            return newEstimation;
         }
 
         public async Task<bool> RemoveUserFromSession(long sessionId, string userId)
@@ -142,7 +129,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             var expression = LiteDB.Query.EQ("_id", sessionId);
             var session = _sessionRepository.GetFirstOrDefault(expression);
 
-            if (session != null)
+            if (isSessionValid(session))
             {
                 var user = session.Users.SingleOrDefault(i => i.Id == userId);
 
@@ -176,7 +163,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Role = role,
             };
 
-            if (session != null)
+            if (isSessionValid(session))
             {
                 if (!session.Users.Any(x => x.Equals(newUser)))
                 {
@@ -203,7 +190,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Status = Status.Suspended
             };
 
-            if (session != null)
+            if (isSessionValid(session))
             {
                 session.Tasks.Add(newTask);
 
@@ -228,21 +215,19 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             var session = await GetSession(sessionId);
 
-            if (session == null)
+            if (isSessionValid(session))
             {
-                throw new NotFoundException(sessionId);
+                var task = session.Tasks.ToList().Find(item => item.Id == taskId);
+
+                if (task == null)
+                {
+                    throw new TaskNotFoundException(taskId);
+                }
+
+                session.Tasks.Remove(task);
+
+                return _sessionRepository.Update(session);
             }
-
-            var task = session.Tasks.ToList().Find(item => item.Id == taskId);
-
-            if (task == null)
-            {
-                throw new TaskNotFoundException(taskId);
-            }
-
-            session.Tasks.Remove(task);
-
-            return _sessionRepository.Update(session);
         }
 
         private string generateInviteToken()
@@ -260,7 +245,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             var (id, status) = statusChange;
 
             // if the session could be found and is valid
-            if (session is not null && session.IsValid())
+            if (isSessionValid(session))
             {
                 var containsTask = session.Tasks.Where(item => item.Id == id).Any();
 
@@ -289,6 +274,23 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             }
 
             return (false, new List<TaskStatusChangeDto>());
+        }
+        public async bool isSessionValid(Session session)
+        {
+            if (session == null)
+            {
+                throw new NotFoundException(sessionId);
+            }
+
+            else if (!sessionResult.IsValid())
+            {
+                throw new InvalidSessionException(sessionId);
+            }
+
+            else
+            {
+                return true;
+            }
         }
     }
 }

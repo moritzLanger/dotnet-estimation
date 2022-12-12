@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Converters;
-
+using ErrorOr;
 using Devon4Net.Infrastructure.Logger.Logging;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Exceptions;
 
@@ -37,31 +37,20 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         {
             Devon4NetLogger.Debug($"Get-Request for session status with id: {id}");
 
-            try
-            {
-                var (isValid, tasks, users) = await _sessionService.GetStatus(id);
+                var ErrorOrStatus = await _sessionService.GetStatus(id);
 
-                Devon4NetLogger.Debug($"Session is valid: {isValid}");
-
+                Devon4NetLogger.Debug($"Session is valid: {ErrorOrStatus.Value.Item1}");
+                Devon4NetLogger.Debug($"{ErrorOrStatus.FirstError.Description}");
                 var statusResult = new StatusDto
                 {
-                    IsValid = isValid,
-                    Tasks = tasks.Select(item => TaskConverter.ModelToDto(item)).ToList(),
-                    Users = users.Select(item => UserConverter.ModelToDto(item)).ToList(),
+                    IsValid = ErrorOrStatus.Value.Item1,
+                    Tasks = ErrorOrStatus.Value.Item2.Select(item => TaskConverter.ModelToDto(item)).ToList(),
+                    Users = ErrorOrStatus.Value.Item3.Select(item => TaskConverter.ModelToDto(item)).ToList(),
                 };
 
                 return new ObjectResult(JsonConvert.SerializeObject(statusResult));
             }
-            catch (Exception exception)
-            {
-                Devon4NetLogger.Debug($"Exception thrown: {exception.Message}");
 
-                return exception switch
-                {
-                    NotFoundException _ => NotFound(),
-                    _ => StatusCode(500),
-                };
-            }
         }
     }
 }

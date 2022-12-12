@@ -8,9 +8,11 @@ using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dto
 using System.Security.Cryptography;
 using LiteDB;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Converters;
+using ErrorOr;
 using System;
 using Devon4Net.Infrastructure.JWT.Handlers;
 using System.Security.Claims;
+
 
 namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service
 {
@@ -33,16 +35,33 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             _userRepository = UserRepository;
             _jwtHandler = JwtHandler;
         }
+
+        public ErrorOr<bool> validateSession(Session session, long sessionId)
+        {
+
+            if (session == null)
+            {
+                return Error.Failure(description: $"no session with the sessionId: {sessionId}");
+            }
+
+            if (!session.IsValid())
+            {
+                return Error.Failure(description: $"Session with the SessionId: {sessionId} is no longer valid");
+            }
+            return true;
+        }
+
         /// <summary>
         /// Creates the Session
         /// </summary>
         /// <param name="sessionDto"></param>
         /// <returns></returns>
-        public async Task<ResultCreateSessionDto> CreateSession(SessionDto sessionDto)
+        public async Task<ErrorOr<ResultCreateSessionDto>> CreateSession(SessionDto sessionDto)
+
         {
             if (sessionDto.ExpiresAt <= DateTime.Now || sessionDto.ExpiresAt == null)
             {
-                throw new InvalidExpiryDateException();
+                return Error.Failure(description: "Session is no longer valid or never existed");
             }
 
             var (expiresAt, username) = sessionDto;
@@ -94,42 +113,36 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             return _sessionRepository.GetFirstOrDefault(expression);
         }
 
-        public async Task<bool> InvalidateSession(long sessionId)
+        public async Task<ErrorOr<bool>> InvalidateSession(long sessionId)
         {
-            Session sessionResult = await GetSession(sessionId);
+            Session session = await GetSession(sessionId);
 
-            if (sessionResult == null)
+            var ErrorOrTrue = validateSession(session, sessionId);
+
+            if (ErrorOrTrue.IsError)
             {
-                throw new NotFoundException(sessionId);
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
 
-            if (!sessionResult.IsValid())
-            {
-                throw new InvalidSessionException(sessionId);
-            }
+            session.ExpiresAt = DateTime.Now;
 
-            sessionResult.ExpiresAt = DateTime.Now;
-
-            return _sessionRepository.Update(sessionResult);
+            return _sessionRepository.Update(session);
         }
 
-        public async Task<(bool, List<Domain.Entities.Task>, List<User>)> GetStatus(long sessionId)
+        public async Task<ErrorOr<(bool, List<Domain.Entities.Task>, List<User>)>> GetStatus(long sessionId)
         {
-            var entity = await GetSession(sessionId);
+            var session = await GetSession(sessionId);
 
-            if (entity == null)
+            var ErrorOrTrue = validateSession(session, sessionId);
+
+            if (ErrorOrTrue.IsError)
             {
-                throw new NotFoundException(sessionId);
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
 
-            bool sessionIsValid = entity.IsValid();
-
-            if (!sessionIsValid)
-            {
-                return (false, null, null);
-            }
-
-            return (true, entity.Tasks.ToList(), entity.Users.ToList());
+            return (true, session.Tasks.ToList(), entity.Users.ToList()));
         }
 
         /// <summary>
@@ -140,20 +153,22 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         /// <param name="voteBy">The originating user's ID</param>
         /// <param name="complexity">Complexity estimation</param>
         /// <returns></returns>
-        public async Task<Estimation> AddNewEstimation(long sessionId, string taskId, string voteBy, int complexity)
+        public async Task<ErrorOr<Estimation>> AddNewEstimation(long sessionId, string taskId, string voteBy, int complexity)
         {
             var session = await GetSession(sessionId);
 
-            if (session is null)
-            {
-                throw new NoLongerValid(sessionId);
-            }
+            var ErrorOrTrue = validateSession(session, sessionId);
 
+            if (ErrorOrTrue.IsError)
+            {
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
+            }
             var containsTask = session.Tasks.Where(item => item.Id == taskId).Any();
 
             if (containsTask == false)
             {
-                throw new NoOpenOrSuspendedTask();
+                return Error.Failure(description: $"Session doesn't contain Task with TaskId : {taskId}");
             }
 
             var task = session.Tasks.First(item => item.Id == taskId);
@@ -169,7 +184,8 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
                 if (alreadyContainsEstimation)
                 {
-                    var oldEstimation = estimations.First(est => est.VoteBy == voteBy);
+                    var oldEstimation = estimations.FirstOrDefault(est => est.VoteBy == voteBy);
+
 
                     estimations.Remove(oldEstimation);
                 }
@@ -182,23 +198,28 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             return newEstimation;
         }
 
-        public async Task<bool> RemoveUserFromSession(long sessionId, string userId)
+        public async Task<ErrorOr<bool>> RemoveUserFromSession(long sessionId, string userId)
         {
             var expression = LiteDB.Query.EQ("_id", sessionId);
             var session = _sessionRepository.GetFirstOrDefault(expression);
 
-            if (session != null)
-            {
-                var user = session.Users.SingleOrDefault(i => i.Id == userId);
+            var ErrorOrTrue = validateSession(session, sessionId);
 
-                if (user != null)
-                {
-                    session.Users.Remove(user);
-                    _sessionRepository.Update(session);
-                    return true;
-                }
+            if (ErrorOrTrue.IsError)
+            {
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
 
+            var user = session.Users.SingleOrDefault(i => i.Id == userId);
+
+            if (user != null)
+            {
+                session.Users.Remove(user);
+                _sessionRepository.Update(session);
+                return true;
+            }
+               
             return false;
         }
 
@@ -209,16 +230,11 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         /// <param name="userId"></param>
         /// <param name="role"></param>
         /// <returns></returns>
-        public async Task<(bool, UserDto?)> AddUserToSession(long sessionId, string username)
+
+        public async Task<ErrorOr<(bool, UserDto?)>> AddUserToSession(long sessionId, string username)
         {
             var session = await GetSession(sessionId);
 
-            if (!session.IsValid())
-            {
-                Devon4NetLogger.Debug("Session is not valid!");
-            }
-
-            Devon4NetLogger.Debug("Adding to session!");
 
             var newUser = new User
             {
@@ -229,15 +245,21 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             var userEntity = _userRepository.Create(newUser);
 
             bool finished = false;
-
-            if (session is not null)
+            
+            var ErrorOrTrue = validateSession(session, sessionId);
+            
+            if (ErrorOrTrue.IsError)
             {
-                session.Users.Add(newUser);
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
+            }
+            
+            session.Users.Add(newUser);
 
-                finished = _sessionRepository.Update(session);
+            finished = _sessionRepository.Update(session);
 
-                Devon4NetLogger.Debug("Added user to session!");
-            };
+            Devon4NetLogger.Debug("Added user to session!");
+            
 
             if (finished)
             {
@@ -264,11 +286,11 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
                 return (true, resultingUser);
             }
-
-            return (false, null);
         }
+        
+        
+        public async Task<ErrorOr<(bool, TaskDto)>> AddTaskToSession(long sessionId, string userId, TaskDto task)
 
-        public async Task<(bool, TaskDto)> AddTaskToSession(long sessionId, string userId, TaskDto task)
         {
             var session = await GetSession(sessionId);
 
@@ -289,18 +311,23 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 Status = Status.Suspended
             };
 
-            if (session != null)
+
+            var ErrorOrTrue = validateSession(session, sessionId);
+
+            if (ErrorOrTrue.IsError)
             {
-                session.Tasks.Add(newTask);
-
-                var finished = _sessionRepository.Update(session);
-
-                if (finished)
-                {
-                    return (finished, TaskConverter.ModelToDto(newTask));
-                }
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
+            session.Tasks.Add(newTask);
 
+            var finished = _sessionRepository.Update(session);
+
+            if (finished)
+            {
+                return (finished, TaskConverter.ModelToDto(newTask));
+            }
+            
             return (false, null);
         }
 
@@ -310,20 +337,23 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         /// <param name="sessionId"></param>
         /// <param name="taskId"></param>
         /// <returns></returns>
-        public async Task<bool> DeleteTask(long sessionId, string taskId)
+        public async Task<ErrorOr<bool>> DeleteTask(long sessionId, string taskId)
         {
             var session = await GetSession(sessionId);
 
-            if (session == null)
+            var ErrorOrTrue = validateSession(session, sessionId);
+
+            if (ErrorOrTrue.IsError)
             {
-                throw new NotFoundException(sessionId);
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
 
             var task = session.Tasks.ToList().Find(item => item.Id == taskId);
 
             if (task == null)
             {
-                throw new TaskNotFoundException(taskId);
+                return Error.Failure(description: $"Session doesn't contain Task with TaskId : {taskId}");
             }
 
             session.Tasks.Remove(task);
@@ -339,40 +369,45 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
             return BitConverter.ToString(randomNumber);
         }
 
-        public async Task<(bool, List<TaskStatusChangeDto>)> ChangeTaskStatus(long sessionId, TaskStatusChangeDto statusChange)
+        public async Task<ErrorOr<(bool, List<TaskStatusChangeDto>)>> ChangeTaskStatus(long sessionId, TaskStatusChangeDto statusChange)
         {
             var session = await GetSession(sessionId);
 
             var (id, status) = statusChange;
 
-            // if the session could be found and is valid
-            if (session is not null && session.IsValid())
+            var ErrorOrTrue = validateSession(session, sessionId);
+
+            if (ErrorOrTrue.IsError)
             {
-                var containsTask = session.Tasks.Where(item => item.Id == id).Any();
-
-                if (!containsTask)
-                {
-                    return (false, new List<TaskStatusChangeDto>());
-                }
-
-                // and it contains the task requested to be chnaged
-                var (modified, taskChanges) = session.ChangeStatusOfTask(id, status);
-
-                if (!modified)
-                {
-                    return (false, new List<TaskStatusChangeDto>());
-                }
-
-                var finished = _sessionRepository.Update(session);
-
-                // and we could properly update the database
-                if (finished)
-                {
-                    var converted = taskChanges.Select<(String id, Status status), TaskStatusChangeDto>(item => new TaskStatusChangeDto { Id = item.id, Status = item.status }).ToList();
-
-                    return (true, converted);
-                }
+                Devon4NetLogger.Debug(ErrorOrTrue.FirstError.Description);
+                return ErrorOrTrue.FirstError;
             }
+
+            var containsTask = session.Tasks.Where(item => item.Id == id).Any();
+
+            if (!containsTask)
+            {
+                return (false, new List<TaskStatusChangeDto>());
+            }
+
+            // and it contains the task requested to be chnaged
+            var (modified, taskChanges) = session.ChangeStatusOfTask(id, status);
+
+            if (!modified)
+            {
+                return (false, new List<TaskStatusChangeDto>());
+            }
+
+            var finished = _sessionRepository.Update(session);
+
+            // and we could properly update the database
+            if (finished)
+            {
+                var converted = taskChanges.Select<(String id, Status status), TaskStatusChangeDto>(item => new TaskStatusChangeDto { Id = item.id, Status = item.status }).ToList();
+
+                return (true, converted);
+            }
+            
 
             return (false, new List<TaskStatusChangeDto>());
         }

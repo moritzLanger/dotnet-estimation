@@ -132,12 +132,13 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
                 await _webSocketHandler.Send(Message, sessionId);
 
-            Devon4NetLogger.Debug("Executing AddUserToSession from controller SessionController");
-            var result = await _sessionService.AddUserToSession(sessionId, userDto.Id,
-                userDto.Role).ConfigureAwait(false);
-            Devon4NetLogger.Debug($"{result.FirstError.Description}");
-            return new ObjectResult(JsonConvert.SerializeObject(result.Value));
+                Devon4NetLogger.Debug("Executing AddUserToSession from controller SessionController");
+                var result = await _sessionService.AddUserToSession(sessionId, userDto.Id,
+                    userDto.Role).ConfigureAwait(false);
+                Devon4NetLogger.Debug($"{result.FirstError.Description}");
+                return new ObjectResult(JsonConvert.SerializeObject(result.Value));
 
+            }
         }
 
         [HttpPost]
@@ -258,3 +259,5 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
         }
     }
 }
+
+

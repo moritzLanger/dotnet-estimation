@@ -142,7 +142,7 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
                 return ErrorOrTrue.FirstError;
             }
 
-            return (true, session.Tasks.ToList(), entity.Users.ToList()));
+            return (true, session.Tasks.ToList(), entity.Users.ToList());
         }
 
         /// <summary>

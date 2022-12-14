@@ -1,17 +1,45 @@
 import axios from "axios";
-import { FunctionComponent } from "react";
+import { useRouter } from "next/router";
+import { FunctionComponent, useEffect, useState } from "react";
 import { baseUrl, serviceUrl } from "../../../../../Constants/url";
+import { ITask } from "../../../../../Interfaces/ITask";
 import { EstimationType } from "../../../../../Types/EstimationType";
+import { Status } from "../../../../../Types/Status";
 import { Center } from "../../../../Globals/Center";
+import { useAuthStore } from "../../../Authentication/Stores/AuthStore";
 import { useTaskStore } from "../../Tasks/Stores/TaskStore";
 import { useEstimationStore } from "../Stores/EstimationStore";
 import { EstimationBar } from "./EstimationBar";
 
-export const Estimation: FunctionComponent<{}> = () => {
-  const { tasks } = useTaskStore();
+interface EstimationProps {
+  id: String;
+}
 
+export const Estimation: FunctionComponent<EstimationProps> = ({ id }) => {
+  const { findOpenTask, tasks, userAlreadyVoted } = useTaskStore();
   const { complexity, effort, risk, resetStore } = useEstimationStore();
+
+  const { userId, token } = useAuthStore();
+
   const columns = new Array<String>();
+
+  const [doVote, setDoVote] = useState<boolean>(true);
+
+  const task = findOpenTask();
+
+  let alreadyVoted = false;
+
+  if (task) {
+    alreadyVoted = userAlreadyVoted(userId as string, task.id);
+  }
+
+  useEffect(() => {
+    if (alreadyVoted === true) {
+      setDoVote(false);
+    } else {
+      setDoVote(true);
+    }
+  }, [task, alreadyVoted]);
 
   for (const type in EstimationType) {
     columns.push(type);
@@ -19,26 +47,44 @@ export const Estimation: FunctionComponent<{}> = () => {
 
   const defaultPadding = "p-4";
 
-  const submitEstimationToRestApi = async () => {
-    const rating = { complexity, effort, risk };
+  // TODO: replace voteby with user
+  const submitEstimationToRestApi = async (taskId: String) => {
+    console.log(userId);
 
-    const url = baseUrl + serviceUrl + "/estimation";
+    const rating = { taskId: taskId, voteBy: userId, complexity };
+
+    const url = baseUrl + serviceUrl + id + "/estimation";
 
     const result = await axios({
       method: "post",
       url: url,
       data: rating,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": " application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
 
-    if (result.status == 200) {
+    if (result.status == 201) {
       // finally remove task from store
       resetStore();
     }
   };
 
-  const renderVoting = () => {
+  if (!userId) {
+    return <>You are currently not logged in!</>;
+  }
+
+  if (tasks == undefined) {
+    return <></>;
+  }
+
+  const user = "me";
+
+  const renderEstimationForTask = (task: ITask) => {
     return (
-      <Center>
+      <>
         <strong className={defaultPadding}>
           How would you rate this task?
         </strong>
@@ -65,7 +111,7 @@ export const Estimation: FunctionComponent<{}> = () => {
           ))}
           <div className="flex justify-center">
             <button
-              onClick={submitEstimationToRestApi}
+              onClick={() => submitEstimationToRestApi(task.id)}
               className={
                 "border-b-blue-700 bg-blue-500 hover:bg-blue-700 text-white font-bold m-2 p-2 rounded "
               }
@@ -74,9 +120,45 @@ export const Estimation: FunctionComponent<{}> = () => {
             </button>
           </div>
         </>
+      </>
+    );
+  };
+
+  const renderVoting = () => {
+    return (
+      <Center>
+        {task ? (
+          doVote ? (
+            renderEstimationForTask(task)
+          ) : (
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  setDoVote(true);
+                }}
+                className={
+                  "border-b-blue-700 bg-blue-500 hover:bg-blue-700 text-white font-bold m-2 p-2 rounded "
+                }
+              >
+                I want to vote again!
+              </button>
+            </div>
+          )
+        ) : (
+          <strong className={defaultPadding}>
+            Please wait for your lobby host to create a task!
+          </strong>
+        )}
       </Center>
     );
   };
 
   return renderVoting();
+
+  /*
+  return userHasAlreadyVoted
+    ? renderViewWhenUserHasAlreadyVoted()
+    : renderVoting();
+
+    */
 };

@@ -39,18 +39,24 @@ namespace Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement
 
             try
             {
-                var (isValid, task) = await _sessionService.GetStatus(id);
+                var (isValid, inviteToken, tasks, users) = await _sessionService.GetStatus(id);
+
+                Devon4NetLogger.Debug($"Session is valid: {isValid}");
 
                 var statusResult = new StatusDto
                 {
                     IsValid = isValid,
-                    CurrentTask = task is null ? null : TaskConverter.ModelToDto(task)
+                    InviteToken = inviteToken,
+                    Tasks = tasks.Select(item => TaskConverter.ModelToDto(item)).ToList(),
+                    Users = users.Select(item => UserConverter.ModelToDto(item)).ToList(),
                 };
 
                 return new ObjectResult(JsonConvert.SerializeObject(statusResult));
             }
             catch (Exception exception)
             {
+                Devon4NetLogger.Debug($"Exception thrown: {exception.Message}");
+
                 return exception switch
                 {
                     NotFoundException _ => NotFound(),

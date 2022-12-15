@@ -1,8 +1,11 @@
 ﻿using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Dtos;
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
+using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
+using ErrorOr;
 using FluentAssertions;
 using Moq;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
@@ -30,13 +33,82 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
 
             //Act
 
-            var (status, tasks) = await sessionService.GetStatus(7);
+
+            var ErrorOrStatus = await sessionService.GetStatus(7);
 
             //Assert
-            //Assert that the delivered indicator whether the Session is valid or not
-            Assert.True(status);
-            //Assert that the list of Tasks is the correct one
-            tasks.Should().BeEquivalentTo(ExpectedSession.Tasks.ToList(), options => options.ComparingByMembers<TaskStatusChangeDto>());
+            Assert.True(ErrorOrStatus.Value.Item1);
+            ErrorOrStatus.Value.Item2.Should().BeEquivalentTo(ExpectedSession.Tasks.ToList(), options => options.ComparingByMembers<TaskStatusChangeDto>());
+        }
+
+        [Fact]
+        public async void GetStatus_WithunPoluatedTasks_ReturnsTrueAndTasklist()
+        {
+
+            //Arange
+            var ExpectedSession = CreateExpiredSession(7);
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(ExpectedSession);
+
+            var sessionService = new SessionService(repositoryStub.Object);
+
+            //Act
+
+            var ErrorOrStatus = await sessionService.GetStatus(7);
+
+            //Assert
+            Assert.True(ErrorOrStatus.IsError);
+        }
+        [Fact]
+        public async void GetStatus_WithExpiredSession_ReturnsError()
+        {
+            //Arrange 
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault
+            (It.IsAny<LiteDB.BsonExpression>())
+            )
+                .Returns<Session>(null);
+
+
+
+            var service = new SessionService(repositoryStub.Object);
+
+            //Act
+            var ErrorOrEstimation = await service.GetStatus(77);
+
+            var errorDescription = "no session with the sessionId: 77";
+            //Act and Assert
+            Assert.IsType<ErrorOr<(bool, List<Task>)>>(ErrorOrEstimation);
+            Assert.Equal(errorDescription, ErrorOrEstimation.FirstError.Description);
+
+        }
+        [Fact]
+        public async void GetStatus_WiThExpiredSession_ReturnsEstimation()
+        {
+            //Arrange 
+            var InitialSession = CreateExpiredSession(17);
+
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+
+            var service = new SessionService(repositoryStub.Object);
+            var errorDescription = "Session with the SessionId: 17 is no longer valid";
+
+
+            //Act
+            var ErrorOrEstimation = await service.GetStatus(17);
+
+            //Assert
+
+            Assert.IsType<ErrorOr<(bool, List<Task>)>>(ErrorOrEstimation);
+            Assert.Equal(errorDescription, ErrorOrEstimation.FirstError.Description);
+
         }
     }
 }

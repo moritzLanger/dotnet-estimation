@@ -3,6 +3,7 @@ using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Exc
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
 using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
+using ErrorOr;
 using Moq;
 using System;
 using Xunit;
@@ -38,7 +39,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
 
             //Assert
 
-            Assert.IsType<LiteDB.BsonValue>(createdSession);
+            Assert.IsType<ErrorOr<LiteDB.BsonValue>>(createdSession);
         }
 
         [Fact]
@@ -56,9 +57,17 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             };
 
             var sessionService = new SessionService(repositoryStub.Object);
+            var errorDescription = "Session is no longer valid or never existed";
 
-            //Act and Assert
-            await Assert.ThrowsAsync<InvalidExpiryDateException>(() => sessionService.CreateSession(session));
+            //Act
+            var errorOrResult = await sessionService.CreateSession(session);
+
+            //Assert
+            Assert.IsType<ErrorOr<LiteDB.BsonValue>>(errorOrResult);
+
+            Assert.Equal(errorDescription, errorOrResult.FirstError.Description);
+
+            Assert.True(errorOrResult.IsError);
         }
     }
 }

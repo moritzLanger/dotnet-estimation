@@ -3,6 +3,7 @@ using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Exc
 using Devon4Net.Application.WebAPI.Implementation.Business.SessionManagement.Service;
 using Devon4Net.Application.WebAPI.Implementation.Domain.Entities;
 using Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers;
+using ErrorOr;
 using FluentAssertions;
 using Moq;
 using System;
@@ -49,12 +50,12 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             //Assert
             //Assert that the list of modified TaskStatusChangeDtos is empty
             
-            newEstimation.Should().BeEquivalentTo(estimationToAdd, options => options.ComparingByMembers<TaskStatusChangeDto>());
+            newEstimation.Value.Should().BeEquivalentTo(estimationToAdd, options => options.ComparingByMembers<TaskStatusChangeDto>());
         }
 
         [Theory]
         [InlineData(3, "TestUser", 8)]
-        public async void AddNewEstimation_WithInvalidTaksId_ThrowsError(long sessionId, string voteBy, int complexity)
+        public async void AddNewEstimation_WithInvalidTaksId_ReturnsError(long sessionId, string voteBy, int complexity)
         {
             //Arrange
             var estimationToAdd = new Estimation()
@@ -76,9 +77,16 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
                 .Returns(true);
 
             var service = new SessionService(repositoryStub.Object);
+            var errorDescription = "Session doesn't contain Task with TaskId : invalidId";
 
-            //Act and Assert
-            await Assert.ThrowsAsync<NoOpenOrSuspendedTask>(() => service.AddNewEstimation(sessionId, "invalidId", voteBy, complexity));
+
+            //Act
+            var errorOrResult = await service.AddNewEstimation(sessionId, "invalidId", voteBy, complexity);
+
+            //Assert
+            Assert.IsType<ErrorOr<Estimation>>(errorOrResult);
+            Assert.Equal(errorDescription, errorOrResult.FirstError.Description);
+
 
         }
 
@@ -111,8 +119,67 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
 
             //Assert
 
-            newEstimation.Should().BeEquivalentTo(estimationToAdd, options => options.ComparingByMembers<TaskStatusChangeDto>());
+            newEstimation.Value.Should().BeEquivalentTo(estimationToAdd, options => options.ComparingByMembers<TaskStatusChangeDto>());
 
+        }
+        
+        [Fact]
+        public async void AddNewEstimation_WithExpiredSession_ReturnsError()
+        {
+            //Arrange 
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault
+            (It.IsAny<LiteDB.BsonExpression>())
+            )
+                .Returns<Session>(null);
+
+            repositoryStub.Setup(repo => repo.Update(
+                It.IsAny<Session>()
+            ))
+                .Returns(true);
+
+            var service = new SessionService(repositoryStub.Object);
+
+            //Act
+            var ErrorOrEstimation = await service.AddNewEstimation(77, "randomID", "RandomName", 9);
+
+            var errorDescription = "no session with the sessionId: 77";
+            //Act and Assert
+            Assert.IsType<ErrorOr<Estimation>>(ErrorOrEstimation);
+            Assert.Equal(errorDescription, ErrorOrEstimation.FirstError.Description);
+        }
+        [Fact]
+        public async void AddNewEstimation_WiThExpiredSession_ReturnsEstimation()
+        {
+            //Arrange 
+            var InitialSession = CreateExpiredSession(17);
+            var estimationToAdd = new Estimation()
+            {
+                VoteBy = InitialSession.Tasks[0].Estimations[1].VoteBy,
+                Complexity = InitialSession.Tasks[0].Estimations[1].Complexity + 1,
+            };
+
+            repositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                It.IsAny<LiteDB.BsonExpression>()
+            ))
+                .Returns(InitialSession);
+
+            repositoryStub.Setup(repo => repo.Update(
+                It.IsAny<Session>()
+            ))
+                .Returns(true);
+
+            var service = new SessionService(repositoryStub.Object);
+            var errorDescription = "Session with the SessionId: 17 is no longer valid";
+
+
+            //Act
+            var newEstimation = await service.AddNewEstimation(17, InitialSession.Tasks[0].Id, InitialSession.Tasks[0].Estimations[1].VoteBy, InitialSession.Tasks[0].Estimations[1].Complexity + 1);
+
+            //Assert
+
+            Assert.IsType<ErrorOr<Estimation>>(newEstimation);
+            Assert.Equal(errorDescription, newEstimation.FirstError.Description);
         }
     }
 }

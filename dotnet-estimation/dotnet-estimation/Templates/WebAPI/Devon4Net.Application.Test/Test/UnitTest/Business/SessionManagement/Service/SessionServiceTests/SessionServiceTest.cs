@@ -19,6 +19,10 @@ namespace Devon4Net.Test.xUnit.Test.UnitTest.Management.Controllers
         {
             this.output = output;
         }
+        protected Session CreateNullSession()
+        {
+            return null;
+        }
         protected Session CreateRadomSessionWithOpenTaskAndEstimations(long sessionId)
         {
             IList<User> Users = new List<User>();

@@ -43,5 +43,8 @@
     <ProjectReference Include="..\Devon4Net.Application.WebAPI\Devon4Net.Application.WebAPI.csproj" />
     <ProjectReference Include="..\Devon4Net.Application.WebAPI.Implementation\Devon4Net.Application.WebAPI.Implementation.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Test\UnitTest\Business\SessionManagement\Service\" />
+  </ItemGroup>
 
 </Project>

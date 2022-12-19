@@ -55,7 +55,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
                 .Returns(true);
 
             var sessionService = new SessionService(sessionRepositoryStub.Object, userRepositoryStub.Object, jwtHandler.Object);
-            var errorDescription = "Session doesn't contain Task with TaskId : invalidId";
+            var errorDescription = "No task found with taskId: invalidId";
 
             //Act
             var errorOrResult = await sessionService.DeleteTask(2, "invalidId");

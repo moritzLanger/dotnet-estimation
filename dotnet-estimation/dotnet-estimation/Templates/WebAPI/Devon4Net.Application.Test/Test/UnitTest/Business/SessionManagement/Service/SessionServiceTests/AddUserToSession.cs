@@ -52,13 +52,12 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             Assert.False(UserAdded.IsError);
             Assert.True(UserAdded.Value.Item1);
         }
-        
-/*
+
         [Fact]
-        public async void AddUserToSession_WithExistingUser_ReturnsFalse()
+        public async void AddUserToSession_WiThinvalidRole_ReturnsfalseAndNull()
         {
-            //Arrange
-            var InitialSession = CreateRandomSession(1);
+            //Arrange 
+            var InitialSession = CreateRandomSession(17);
 
             sessionRepositoryStub.Setup(repo => repo.GetFirstOrDefault(
                 It.IsAny<LiteDB.BsonExpression>()
@@ -70,16 +69,53 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             ))
                 .Returns(true);
 
+            userRepositoryStub.Setup(repo => repo.Create(
+                It.IsAny<User>()
+              ))
+                .Returns(new LiteDB.BsonValue());
+
+            jwtHandler.Setup(jwtHandler => jwtHandler.CreateJwtToken(
+                It.IsAny<System.Collections.Generic.List<System.Security.Claims.Claim>>()
+                )).Returns("inviteToken");
+
             var service = new SessionService(sessionRepositoryStub.Object, userRepositoryStub.Object, jwtHandler.Object);
-            var InitialUsers = InitialSession.Users;
+
 
             //Act
-            var UserAdded = await service.AddUserToSession(InitialSession.InviteToken, InitialSession.Users[1].Username, Role.Voter);
+            var ErrorOrEstimation = await service.AddUserToSession("inviteToken", "RandomId", Role.Author);
 
             //Assert
+            Assert.IsType<ErrorOr<(bool, Application.WebAPI.Implementation.Business.SessionManagement.Dtos.JoinSessionResultDto?)>>(ErrorOrEstimation);
+            Assert.False(ErrorOrEstimation.Value.Item1);
+            Assert.Null(ErrorOrEstimation.Value.Item2);
+        }
+        /*
+                [Fact]
+                public async void AddUserToSession_WithExistingUser_ReturnsFalse()
+                {
+                    //Arrange
+                    var InitialSession = CreateRandomSession(1);
 
-            Assert.False(UserAdded.Value.Item1);
-        }*/
+                    sessionRepositoryStub.Setup(repo => repo.GetFirstOrDefault(
+                        It.IsAny<LiteDB.BsonExpression>()
+                    ))
+                        .Returns(InitialSession);
+
+                    sessionRepositoryStub.Setup(repo => repo.Update(
+                        It.IsAny<Session>()
+                    ))
+                        .Returns(true);
+
+                    var service = new SessionService(sessionRepositoryStub.Object, userRepositoryStub.Object, jwtHandler.Object);
+                    var InitialUsers = InitialSession.Users;
+
+                    //Act
+                    var UserAdded = await service.AddUserToSession(InitialSession.InviteToken, InitialSession.Users[1].Username, Role.Voter);
+
+                    //Assert
+
+                    Assert.False(UserAdded.Value.Item1);
+                }*/
 
         [Fact]
         public async void AddUserToSession_WithNullSession_ReturnsError()
@@ -110,14 +146,14 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             //Act
             var ErrorOrEstimation = await service.AddUserToSession("invalidInviteToken", "RandomId", Role.Voter);
 
-            var errorDescription = "no session with the sessionId: 77";
+            var errorDescription = "no session with the sessionId: ";
             //Act and Assert
             Assert.IsType<ErrorOr<(bool, Application.WebAPI.Implementation.Business.SessionManagement.Dtos.JoinSessionResultDto?)>>(ErrorOrEstimation);
             Assert.Equal(errorDescription, ErrorOrEstimation.FirstError.Description);
         }
 
         [Fact]
-        public async void AddTaskToSession_WiThExpiredSession_ReturnsEstimation()
+        public async void AddUserToSession_WiThExpiredSession_ReturnsEstimation()
         {
             //Arrange 
             var InitialSession = CreateExpiredSession(17);
@@ -142,7 +178,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
                 )).Returns("inviteToken");
 
             var service = new SessionService(sessionRepositoryStub.Object, userRepositoryStub.Object, jwtHandler.Object);
-            var errorDescription = "Session with the SessionId: 17 is no longer valid";
+            var errorDescription = "Session with the SessionId:  is no longer valid";
 
 
             //Act

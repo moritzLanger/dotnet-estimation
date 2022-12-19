@@ -26,7 +26,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             sessionRepositoryStub.Setup(repo => repo.Create(
                 It.IsAny<Session>()
              ))
-                .Returns(new LiteDB.BsonValue());
+                .Returns(new LiteDB.BsonValue((long) 17));
 
             userRepositoryStub.Setup(repo => repo.Create(
                 It.IsAny<User>()
@@ -44,6 +44,7 @@ namespace Devon4Net.Test.Test.UnitTest.Business.SessionManagement.Service.Sessio
             };
 
             var sessionService = new SessionService(sessionRepositoryStub.Object, userRepositoryStub.Object, jwtHandler.Object);
+
 
             //Act
             var createdSession = await sessionService.CreateSession(session);
